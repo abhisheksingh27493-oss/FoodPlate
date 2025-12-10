@@ -1,26 +1,48 @@
-// SignUp Page
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
-
+import { useAuth } from '../context/AuthContext';
 
 export function SignUpPage() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({ name: '', email: '', password: '', confirmPassword: '' });
+  const [localError, setLocalError] = useState('');
+  const { register, googleLogin, error, loading, isAuthenticated } = useAuth();
 
-  const handleSubmit = (e) => {
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/');
+    }
+  }, [isAuthenticated, navigate]);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setLocalError('');
+
     if (formData.password !== formData.confirmPassword) {
-      alert('Passwords do not match!');
+      setLocalError('Passwords do not match!');
       return;
     }
-    alert('Account created successfully!');
-    navigate('/login');
+
+    if (formData.password.length < 6) {
+      setLocalError('Password must be at least 6 characters');
+      return;
+    }
+
+    const { confirmPassword, ...userData } = formData;
+    const result = await register(userData);
+
+    if (result.success) {
+      navigate('/');
+    } else {
+      setLocalError(result.error);
+    }
   };
 
   const handleGoogleSignup = () => {
-    alert('Google signup would be implemented here');
+    googleLogin();
   };
 
   return (
@@ -34,6 +56,12 @@ export function SignUpPage() {
           <p className="text-gray-600 mt-2">Sign up to start ordering</p>
         </div>
 
+        {(error || localError) && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-xl text-sm">
+            {error || localError}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block text-gray-700 font-medium mb-2">Full Name</label>
@@ -44,6 +72,7 @@ export function SignUpPage() {
               className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-red-300"
               placeholder="John Doe"
               required
+              disabled={loading}
             />
           </div>
 
@@ -56,6 +85,7 @@ export function SignUpPage() {
               className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-red-300"
               placeholder="your@email.com"
               required
+              disabled={loading}
             />
           </div>
 
@@ -69,6 +99,8 @@ export function SignUpPage() {
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-red-300"
                 placeholder="••••••••"
                 required
+                minLength={6}
+                disabled={loading}
               />
               <button
                 type="button"
@@ -89,11 +121,16 @@ export function SignUpPage() {
               className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-red-300"
               placeholder="••••••••"
               required
+              disabled={loading}
             />
           </div>
 
-          <button type="submit" className="w-full px-6 py-3 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors font-medium">
-            Sign Up
+          <button 
+            type="submit" 
+            className="w-full px-6 py-3 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={loading}
+          >
+            {loading ? 'Creating account...' : 'Sign Up'}
           </button>
         </form>
 
@@ -106,7 +143,11 @@ export function SignUpPage() {
           </div>
         </div>
 
-        <button onClick={handleGoogleSignup} className="w-full px-6 py-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors flex items-center justify-center space-x-3">
+        <button 
+          onClick={handleGoogleSignup} 
+          className="w-full px-6 py-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors flex items-center justify-center space-x-3"
+          disabled={loading}
+        >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
             <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
