@@ -12,6 +12,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import DashboardPage from "./pages/Dashboard";
 import AdminPage from "./pages/Admin";
 import AuthSuccess from "./pages/AuthSuccess";  // <-- IMPORTANT
+import RestaurantDashboard from "./pages/RestaurantDashboard";
 
 export default function App() {
   return (
@@ -58,6 +59,16 @@ export default function App() {
             <ProtectedRoute>
               <Layout>
                 <DashboardPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route // Added RestaurantDashboard route
+          path="/restaurant/dashboard"
+          element={
+            <ProtectedRoute requiredRole="restaurant"> {/* Assuming 'restaurant' is the required role */}
+              <Layout>
+                <RestaurantDashboard />
               </Layout>
             </ProtectedRoute>
           }

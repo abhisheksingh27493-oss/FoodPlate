@@ -57,6 +57,12 @@ const userSchema = new mongoose.Schema(
     ],
     resetPasswordToken: String,
     resetPasswordExpire: Date,
+    orders: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Order'
+      }
+    ]
   },
   {
     timestamps: true,

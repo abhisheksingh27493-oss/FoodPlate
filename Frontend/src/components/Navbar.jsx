@@ -35,7 +35,11 @@ export default function Navbar() {
           <div className="hidden md:flex items-center space-x-8">
             <Link to="/" className="text-gray-700 hover:text-red-500 transition-colors">Home</Link>
             <Link to="/about" className="text-gray-700 hover:text-red-500 transition-colors">About</Link>
-            <Link to="/contact" className="text-gray-700 hover:text-red-500 transition-colors">Contact</Link>
+            <Link to="/contact" className="text-gray-600 hover:text-orange-600 font-medium">Contact</Link>
+            
+            {(user?.role === 'restaurant' || user?.role === 'admin') && (
+              <Link to="/restaurant/dashboard" className="text-gray-600 hover:text-orange-600 font-medium">Dashboard</Link>
+            )}
           </div>
 
           {isAuthenticated ? (
