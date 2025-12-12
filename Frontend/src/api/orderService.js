@@ -14,10 +14,30 @@ const orderService = {
   // Get logged in user's orders
   getMyOrders: async () => {
     try {
-      const response = await axiosInstance.get('/order');
+      const response = await axiosInstance.get('/order/myorders');
       return response.data;
     } catch (error) {
       throw error.response?.data || { message: 'Failed to fetch orders' };
+    }
+  },
+
+  // Get single order
+  getOrderById: async (id) => {
+    try {
+        const response = await axiosInstance.get(`/order/${id}`);
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || { message: 'Failed to fetch order' };
+    }
+  },
+
+  // Quick Order
+  quickOrder: async (orderData) => {
+    try {
+        const response = await axiosInstance.post('/order/quick', orderData);
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || { message: 'Failed to place quick order' };
     }
   },
 
@@ -29,6 +49,16 @@ const orderService = {
     } catch (error) {
       throw error.response?.data || { message: 'Failed to update order status' };
     }
+  },
+
+  // Cancel order
+  cancelOrder: async (id) => {
+      try {
+          const response = await axiosInstance.put(`/order/${id}/cancel`);
+          return response.data;
+      } catch (error) {
+          throw error.response?.data || { message: 'Failed to cancel order' };
+      }
   },
 
   // Verify payment

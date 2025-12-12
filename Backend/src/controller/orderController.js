@@ -8,175 +8,86 @@ const { initiatePayment } = require('./paymentController');
 // @access  Private
 exports.placeOrder = async (req, res) => {
   try {
-    console.log('🛒 === DIRECT PAYMENT ORDER ===');
-    console.log('👤 User ID:', req.user.id);
-    console.log('📦 Request Body:', JSON.stringify(req.body, null, 2));
+    const userId = req.user._id;
 
-    const { items, totalAmount, shippingAddress, orderType } = req.body;
+    const { items, totalAmount, orderType } = req.body;
+
+    console.log("🛒 === DIRECT PAYMENT ORDER ===");
+    console.log("👤 User ID:", userId);
+    console.log("📦 Request Body:", req.body);
 
     // Validate items
-    if (!items || items.length === 0) {
-      console.log('❌ No order items provided');
-      return res.status(400).json({
-        success: false,
-        message: 'Please select items to order',
-      });
-    }
-
-    console.log('✅ Items to order:', items.length, 'items');
-
-    // Validate address only for Delivery
-    if (orderType === 'Delivery' && !shippingAddress) {
-      console.log('❌ Shipping address missing for delivery');
-      return res.status(400).json({
-        success: false,
-        message: 'Shipping address is required for delivery',
-      });
-    }
-
-    console.log('✅ Order type:', orderType || 'Delivery');
-
-    // Validate food items exist and calculate total
-    let calculatedTotal = 0;
     const validatedItems = [];
+    let calculatedTotal = 0;
 
     for (const item of items) {
-      console.log('🔍 Validating item:', item.food);
-      
-      const food = await Food.findById(item.food);
-      
-      if (!food) {
-        console.log('❌ Food item not found:', item.food);
-        return res.status(404).json({
-          success: false,
-          message: `Food item not found: ${item.food}`,
-        });
+      const foodItem = await Food.findById(item.food);
+
+      if (!foodItem) {
+        return res.status(404).json({ message: "Food item not found" });
       }
 
-      if (!food.isAvailable) {
-        console.log('❌ Food item not available:', food.name);
-        return res.status(400).json({
-          success: false,
-          message: `${food.name} is currently unavailable`,
-        });
-      }
-
-      const itemTotal = food.price * item.quantity;
-      calculatedTotal += itemTotal;
+      const subtotal = foodItem.price * item.quantity;
+      calculatedTotal += subtotal;
 
       validatedItems.push({
-        food: food._id,
+        food: item.food,
+        name: foodItem.name,
         quantity: item.quantity,
-        price: food.price // Snapshot of current price
-      });
-
-      console.log('✅ Item validated:', {
-        name: food.name,
-        quantity: item.quantity,
-        price: food.price,
-        subtotal: itemTotal
+        price: foodItem.price,
+        subtotal,
       });
     }
 
-    console.log('💰 Calculated Total:', calculatedTotal);
-    console.log('💰 Submitted Total:', totalAmount);
-
-    // Verify total amount matches (with small tolerance for rounding)
-    if (Math.abs(calculatedTotal - totalAmount) > 0.01) {
-      console.log('⚠️ Total amount mismatch!');
-      return res.status(400).json({
-        success: false,
-        message: 'Total amount mismatch',
-        calculatedTotal,
-        submittedTotal: totalAmount
-      });
+    // Check totals
+    if (calculatedTotal !== totalAmount) {
+      return res.status(400).json({ message: "Amount mismatch" });
     }
 
-    console.log('💾 Creating order in database...');
+    console.log("💾 Creating order in database...");
 
-    // Create order with 'Pending' status
+    // Create order
     const order = await Order.create({
-      user: req.user.id,
+      user: userId,
       items: validatedItems,
-      totalAmount: calculatedTotal,
-      shippingAddress: orderType === 'Delivery' ? shippingAddress : undefined,
-      orderType: orderType || 'Delivery',
-      status: 'Pending',
-      paymentResult: {
-        status: 'Pending'
-      }
+      totalAmount,
+      status: "Pending",
+      orderType,
     });
 
-    console.log('✅ Order created:', {
-      orderId: order._id,
-      totalAmount: order.totalAmount,
-      status: order.status
+    console.log("✅ Order created:", order);
+
+    // Add order to user history
+    await User.findByIdAndUpdate(userId, {
+      $push: { orderHistory: order._id }
     });
 
-    // Add order to user's history
-    await User.findByIdAndUpdate(req.user.id, {
-      $push: { orders: order._id }
-    });
+    console.log("💳 Initiating direct payment...");
 
-    console.log('✅ Order added to user history');
+    const paymentResponse = await initiatePayment(
+      order._id,
+      totalAmount,
+      userId,
+      req.body.customerPhone || "9999999999"
+    );
 
-    // Get user details for payment
-    const user = await User.findById(req.user.id);
-
-    console.log('💳 Initiating direct payment...');
-
-    // Initiate Payment
-    try {
-      const paymentData = await initiatePayment(
-        order._id, 
-        calculatedTotal, 
-        user.phone, 
-        user._id
-      );
-
-      console.log('✅ Payment initiated successfully');
-      console.log('🎫 Payment Session ID:', paymentData.payment_session_id);
-      
-      res.status(201).json({
-        success: true,
-        message: 'Order created, proceed with payment',
-        data: order,
-        payment: {
-          sessionId: paymentData.payment_session_id,
-          cfOrderId: paymentData.cf_order_id,
-          orderStatus: paymentData.order_status
-        },
-        orderId: order._id,
-      });
-
-    } catch (paymentError) {
-      console.error('❌ Payment initiation failed:', {
-        message: paymentError.message,
-        stack: paymentError.stack
-      });
-
-      // Mark order as failed
-      order.status = 'Cancelled';
-      order.paymentResult.status = 'Failed';
-      await order.save();
-
+    if (!paymentResponse.success) {
       return res.status(500).json({
-        success: false,
-        message: 'Payment initiation failed: ' + paymentError.message,
-        orderId: order._id
+        message: "Payment initiation failed",
       });
     }
+
+    return res.status(200).json({
+      message: "Order placed, proceed to payment",
+      orderId: order._id,
+      cfOrderId: paymentResponse.cfOrderId,
+      paymentSessionId: paymentResponse.paymentSessionId,
+      cashfree: paymentResponse.response,
+    });
 
   } catch (error) {
-    console.error('❌ Order creation error:', {
-      message: error.message,
-      stack: error.stack
-    });
-
-    res.status(400).json({
-      success: false,
-      message: error.message,
-    });
+    console.error("❌ Error placing order:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 

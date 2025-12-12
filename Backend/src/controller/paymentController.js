@@ -1,7 +1,8 @@
-const { Cashfree } = require('cashfree-pg');
+const Cashfree = require("@cashfreepayments/cashfree-sdk").default;
 const crypto = require('crypto');
 const Order = require('../models/Order');
 const User = require('../models/User');
+require("dotenv").config();
 
 // Initialize Cashfree
 const initializeCashfree = () => {
@@ -39,61 +40,49 @@ const generateOrderId = () => {
 // @desc    Initiate Payment
 // @route   Used internally by placeOrder
 // @access  Private
-const initiatePayment = async (orderId, amount, customerPhone, customerId) => {
-    try {
-        console.log('💳 Initiating payment:', {
-            orderId,
-            amount,
-            customerPhone,
-            customerId
-        });
 
-        const cashfree = initializeCashfree();
-        const cfOrderId = generateOrderId();
+const initiatePayment = async (orderId, amount, userId, customerPhone) => {
+  try {
+    console.log("💳 Initiating payment...");
 
-        // Create order request
-        const orderRequest = {
-            order_amount: parseFloat(amount).toFixed(2),
-            order_currency: 'INR',
-            order_id: cfOrderId,
-            customer_details: {
-                customer_id: customerId.toString(),
-                customer_phone: customerPhone || '9999999999',
-            },
-            order_meta: {
-                return_url: `${process.env.CLIENT_URL || 'http://localhost:5173'}/order/success?order_id=${orderId}`
-            }
-        };
+    const cf = Cashfree({
+      env: "sandbox",
+      appId: process.env.CASHFREE_APP_ID,
+      secretKey: process.env.CASHFREE_SECRET_KEY,
+    });
 
-        console.log('📤 Sending order request to Cashfree:', JSON.stringify(orderRequest, null, 2));
+    const cfOrderId = `CF${Date.now()}`;
 
-        // Create order with Cashfree
-        const response = await Cashfree.PGCreateOrder("2023-08-01", orderRequest);
+    const payload = {
+      order_id: cfOrderId,
+      order_amount: amount,
+      order_currency: "INR",
+      customer_details: {
+        customer_id: userId.toString(),
+        customer_phone: customerPhone || "9999999999",
+      },
+      order_meta: {
+        return_url: `http://localhost:5173/order/success?order_id=${orderId}`,
+      }
+    };
 
-        console.log('✅ Cashfree response received:', {
-            cf_order_id: response.data?.cf_order_id,
-            order_status: response.data?.order_status,
-            payment_session_id: response.data?.payment_session_id
-        });
+    console.log("📤 Sending order request:", payload);
 
-        // Update order with Cashfree order ID
-        await Order.findByIdAndUpdate(orderId, {
-            cfOrderId: cfOrderId,
-            'paymentResult.id': response.data?.cf_order_id,
-            'paymentResult.status': 'Initiated'
-        });
+    const response = await cf.pg.orders.create(payload);
 
-        console.log('💾 Order updated with Cashfree details');
+    console.log("✅ Cashfree Order Response:", response);
 
-        return response.data;
-    } catch (error) {
-        console.error("❌ Cashfree Payment Initiation Error:", {
-            message: error.message,
-            response: error.response?.data,
-            stack: error.stack
-        });
-        throw new Error(error.response?.data?.message || 'Payment initiation failed');
-    }
+    return {
+      success: true,
+      cfOrderId,
+      paymentSessionId: response.data.payment_session_id,
+      response
+    };
+
+  } catch (error) {
+    console.error("❌ Cashfree Payment Error:", error);
+    return { success: false, message: error.message };
+  }
 };
 
 // @desc    Verify Payment

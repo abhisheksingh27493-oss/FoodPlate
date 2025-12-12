@@ -18,6 +18,7 @@ import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import OrderSuccessPage from "./pages/OrderSuccessPage";
 import FoodDetailsPage from "./pages/FoodDetailsPage";
+import MyOrdersPage from "./pages/MyOrdersPage";
 
 export default function App() {
   return (
@@ -93,6 +94,16 @@ export default function App() {
               <ProtectedRoute>
                  <Layout>
                    <OrderSuccessPage />
+                 </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/myorders"
+            element={
+              <ProtectedRoute>
+                 <Layout>
+                   <MyOrdersPage />
                  </Layout>
               </ProtectedRoute>
             }
