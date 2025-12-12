@@ -1,30 +1,51 @@
 
-import { useState } from 'react';
-import { Star, Clock, Flame, Heart, Minus, Plus, ShoppingCart } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Star, Clock, Flame, Heart, Minus, Plus, ShoppingCart, ShoppingBag } from 'lucide-react';
+import { useCart } from '../context/CartContext';
+import { useNavigate, useParams } from 'react-router-dom';
+import foodService from '../api/foodService';
 
 export default function FoodDetailsPage() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { addToCart } = useCart();
+  
   const [quantity, setQuantity] = useState(1);
   const [selectedSize, setSelectedSize] = useState('medium');
   const [isFavorite, setIsFavorite] = useState(false);
+  const [food, setFood] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const food = {
-    id: 1,
-    name: 'Margherita Pizza',
-    description: 'Classic Italian pizza with fresh mozzarella, tomatoes, and basil on a crispy thin crust. Made with authentic ingredients imported from Italy.',
-    price: 12.99,
-    image: 'https://images.unsplash.com/photo-1604068549290-dea0e4a305ca?w=800&h=600&fit=crop',
-    rating: 4.8,
-    reviews: 234,
-    calories: 285,
-    prepTime: '20-25 min',
-    restaurant: 'Bella Italia',
-    ingredients: ['Mozzarella Cheese', 'Fresh Tomatoes', 'Basil', 'Olive Oil', 'Pizza Dough', 'Sea Salt']
-  };
+  // Fetch food details - if mock data is desired until backend is fully populated, 
+  // we can fallback. For now trying to fetch.
+  // Assuming backend doesn't have size/prepTime etc yet, merging with mock for display if needed.
+  useEffect(() => {
+    const fetchFood = async () => {
+        try {
+            const data = await foodService.getFoodById(id);
+            // Backend returns { success: true, data: { ... } } or just data depending on service
+            // foodService.getFoodById returns response.data which is likely { success: true, data: ... }
+            if (data.success) {
+                setFood(data.data);
+            } else {
+                setFood(data); // In case it returns direct object
+            }
+            setLoading(false);
+        } catch (error) {
+            console.error(error);
+            setLoading(false);
+        }
+    };
+    fetchFood();
+  }, [id]);
+
+  if (loading) return <div className="pt-24 text-center">Loading...</div>;
+  if (!food) return <div className="pt-24 text-center">Food not found</div>;
 
   const sizes = [
-    { name: 'small', label: 'Small (8")', price: 9.99 },
-    { name: 'medium', label: 'Medium (12")', price: 12.99 },
-    { name: 'large', label: 'Large (16")', price: 15.99 }
+    { name: 'small', label: 'Small (8")', price: food.price * 0.8 },
+    { name: 'medium', label: 'Medium (12")', price: food.price },
+    { name: 'large', label: 'Large (16")', price: food.price * 1.2 }
   ];
 
   const getCurrentPrice = () => {
@@ -34,6 +55,41 @@ export default function FoodDetailsPage() {
 
   const getTotalPrice = () => {
     return (getCurrentPrice() * quantity).toFixed(2);
+  };
+
+  const handleAddToCart = () => {
+      // Need to pass formatted food object
+      // Using food._id for consistency with backend
+      const itemToAdd = {
+          ...food,
+          price: getCurrentPrice() // Override base price with sized price
+      };
+      addToCart(itemToAdd, quantity);
+      alert('Added to cart!');
+  };
+
+  const handleBuyNow = () => {
+      if (!food || !food._id) {
+          alert('Error: Food item ID is missing');
+          return;
+      }
+
+      const itemToBuy = {
+        food: {
+            ...food,
+            // Ensure ID is present
+            _id: food._id 
+        },
+        quantity: quantity,
+        price: getCurrentPrice()
+      };
+
+      navigate('/checkout', { 
+          state: { 
+              items: [itemToBuy]
+              // type: 'direct' - Removed to prevent interference with orderType enum
+          } 
+      });
   };
 
   return (
@@ -63,23 +119,23 @@ export default function FoodDetailsPage() {
             <div className="p-8 md:p-10">
               <div className="mb-6">
                 <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">{food.name}</h1>
-                <p className="text-gray-500 text-lg">{food.restaurant}</p>
+                <p className="text-gray-500 text-lg">{food.restaurant || 'FootPlate Kitchen'}</p>
               </div>
 
               {/* Rating & Info */}
               <div className="flex items-center space-x-6 mb-6">
                 <div className="flex items-center space-x-1">
                   <Star className="fill-yellow-400 text-yellow-400" size={20} />
-                  <span className="font-semibold text-gray-800">{food.rating}</span>
-                  <span className="text-gray-500">({food.reviews} reviews)</span>
+                  <span className="font-semibold text-gray-800">{food.rating || 4.5}</span>
+                  <span className="text-gray-500">({food.reviews || 0} reviews)</span>
                 </div>
                 <div className="flex items-center space-x-2 text-gray-600">
                   <Clock size={18} />
-                  <span>{food.prepTime}</span>
+                  <span>{food.prepTime || '15-20 min'}</span>
                 </div>
                 <div className="flex items-center space-x-2 text-gray-600">
                   <Flame size={18} className="text-orange-500" />
-                  <span>{food.calories} cal</span>
+                  <span>{food.calories || 250} cal</span>
                 </div>
               </div>
 
@@ -100,7 +156,7 @@ export default function FoodDetailsPage() {
                       }`}
                     >
                       <div className="text-sm font-medium">{size.label}</div>
-                      <div className="text-xs text-gray-500">${size.price}</div>
+                      <div className="text-xs text-gray-500">₹{size.price.toFixed(2)}</div>
                     </button>
                   ))}
                 </div>
@@ -110,14 +166,18 @@ export default function FoodDetailsPage() {
               <div className="mb-6">
                 <h3 className="font-semibold text-gray-800 mb-3">Ingredients</h3>
                 <div className="flex flex-wrap gap-2">
-                  {food.ingredients.map((ingredient, index) => (
+                  {food.ingredients && food.ingredients.length > 0 ? (
+                    food.ingredients.map((ingredient, index) => (
                     <span 
                       key={index}
                       className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm"
                     >
                       {ingredient}
                     </span>
-                  ))}
+                  ))
+                  ) : (
+                    <span className="text-gray-500 text-sm">Ingredients info not available</span>
+                  )}
                 </div>
               </div>
 
@@ -143,15 +203,26 @@ export default function FoodDetailsPage() {
                 </div>
                 <div className="text-right">
                   <div className="text-sm text-gray-500">Total Price</div>
-                  <div className="text-2xl font-bold text-red-500">${getTotalPrice()}</div>
+                  <div className="text-2xl font-bold text-red-500">₹{getTotalPrice()}</div>
                 </div>
               </div>
 
-              {/* Add to Cart Button */}
-              <button className="w-full py-4 bg-red-500 text-white font-semibold rounded-xl hover:bg-red-600 transition-colors flex items-center justify-center space-x-2">
-                <ShoppingCart size={20} />
-                <span>Add to Cart</span>
-              </button>
+              {/* Action Buttons */}
+              <div className="flex gap-4">
+                <button 
+                    onClick={handleAddToCart}
+                    className="flex-1 py-4 bg-white border-2 border-red-500 text-red-500 font-semibold rounded-xl hover:bg-red-50 transition-colors flex items-center justify-center space-x-2"
+                >
+                    <ShoppingCart size={20} />
+                    <span>Add to Cart</span>
+                </button>
+                <button 
+                    onClick={handleBuyNow}
+                    className="flex-1 py-4 bg-red-500 text-white font-semibold rounded-xl hover:bg-red-600 transition-colors flex items-center justify-center space-x-2">
+                    <ShoppingBag size={20} />
+                    <span>Buy Now</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -170,7 +241,7 @@ export default function FoodDetailsPage() {
                 <img src={item.image} alt={item.name} className="w-full h-32 object-cover" />
                 <div className="p-4">
                   <h3 className="font-semibold text-gray-800 mb-1">{item.name}</h3>
-                  <p className="text-red-500 font-bold">${item.price}</p>
+                  <p className="text-red-500 font-bold">₹{item.price}</p>
                 </div>
               </div>
             ))}

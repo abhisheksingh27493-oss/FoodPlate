@@ -52,6 +52,8 @@ app.use(passport.session());
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/food', require('./routes/foodRoutes'));
 app.use('/api/order', require('./routes/orderRoutes'));
+app.use('/api/restaurant', require('./routes/restaurantRoutes'));
+app.use('/api/payment', require('./routes/paymentRoutes'));
 
 // Error handling
 app.use((err, req, res, next) => {

@@ -19,7 +19,7 @@ const orderSchema = new mongoose.Schema(
           required: true,
           min: 1,
         },
-        price: { // Snapshot of price at time of order
+        price: {
           type: Number,
           required: true,
         },
@@ -34,17 +34,27 @@ const orderSchema = new mongoose.Schema(
       enum: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'],
       default: 'Pending',
     },
-    shippingAddress: { // Can be copied from user or new
+    orderType: {
+      type: String,
+      enum: ['Delivery', 'Dine-in'],
+      default: 'Delivery',
+    },
+    shippingAddress: {
       street: String,
       city: String,
       state: String,
       zipCode: String,
       country: String,
     },
-    paymentResult: { // For future payment integration
+    cfOrderId: {
+      type: String,
+      sparse: true, // Cashfree Order ID
+    },
+    paymentResult: {
       id: String,
       status: String,
       update_time: String,
+      transaction_id: String,
       email_address: String,
     },
   },
@@ -52,5 +62,9 @@ const orderSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+// Index for faster lookups
+orderSchema.index({ cfOrderId: 1 });
+orderSchema.index({ user: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Order', orderSchema);

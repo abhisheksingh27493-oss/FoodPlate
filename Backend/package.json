@@ -20,6 +20,8 @@
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "body-parser": "^2.2.1",
+    "cashfree": "^1.0.1",
+    "cashfree-pg": "^5.1.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",

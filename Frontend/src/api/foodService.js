@@ -1,52 +1,49 @@
-// Real API service - Replace with your actual backend URL
-const API_BASE_URL = 'http://localhost:5000/api'; // Change this to your backend URL
+import axiosInstance from './axios';
 
 const foodService = {
   getAllFoods: async () => {
-    const response = await fetch(`${API_BASE_URL}/food`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
-    });
-    if (!response.ok) throw new Error('Failed to fetch foods');
-    return response.json();
+    try {
+      const response = await axiosInstance.get('/food');
+      return response.data; // Axios returns data in 'data' field, but typically API returns { success: true, data: [...] }
+    } catch (error) {
+       throw error.response?.data || { message: 'Failed to fetch foods' };
+    }
   },
 
   createFood: async (foodData) => {
-    const response = await fetch(`${API_BASE_URL}/food`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
-      body: JSON.stringify(foodData)
-    });
-    if (!response.ok) throw new Error('Failed to create food');
-    return response.json();
+    try {
+      const response = await axiosInstance.post('/food', foodData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to create food' };
+    }
   },
 
   updateFood: async (id, foodData) => {
-    const response = await fetch(`${API_BASE_URL}/food/${id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
-      body: JSON.stringify(foodData)
-    });
-    if (!response.ok) throw new Error('Failed to update food');
-    return response.json();
+    try {
+       const response = await axiosInstance.put(`/food/${id}`, foodData);
+       return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to update food' };
+    }
   },
 
   deleteFood: async (id) => {
-    const response = await fetch(`${API_BASE_URL}/food/${id}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+    try {
+      const response = await axiosInstance.delete(`/food/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to delete food' };
+    }
+  },
+  
+  getFoodById: async (id) => {
+      try {
+          const response = await axiosInstance.get(`/food/${id}`);
+          return response.data;
+      } catch (error) {
+          throw error.response?.data || { message: 'Failed to fetch food details' };
       }
-    });
-    if (!response.ok) throw new Error('Failed to delete food');
-    return response.json();
   }
 };
 

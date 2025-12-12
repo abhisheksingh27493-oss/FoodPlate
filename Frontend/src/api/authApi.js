@@ -72,6 +72,36 @@ const authApi = {
     const user = localStorage.getItem('user');
     return user ? JSON.parse(user) : null;
   },
+
+  // Admin: Get user by ID
+  getUser: async (id) => {
+    try {
+      const response = await axiosInstance.get(`/auth/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to fetch user' };
+    }
+  },
+
+  // Admin: Update user role
+  updateRole: async (id, role) => {
+    try {
+      const response = await axiosInstance.put(`/auth/role/${id}`, { role });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to update role' };
+    }
+  },
+
+  // Admin: Delete user
+  deleteUser: async (id) => {
+    try {
+      const response = await axiosInstance.delete(`/auth/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to delete user' };
+    }
+  },
 };
 
 export default authApi;
