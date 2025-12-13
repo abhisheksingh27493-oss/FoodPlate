@@ -19,10 +19,12 @@
   },
   "dependencies": {
     "@cashfreepayments/cashfree-sdk": "^0.1.7",
+    "axios": "^1.13.2",
     "bcryptjs": "^3.0.3",
     "body-parser": "^2.2.1",
     "cashfree": "^1.0.1",
     "cashfree-pg": "^5.1.0",
+    "cashfree-pg-sdk-nodejs": "^2.0.2",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",

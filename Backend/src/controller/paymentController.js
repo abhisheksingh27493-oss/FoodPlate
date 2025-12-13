@@ -1,38 +1,50 @@
-const Cashfree = require("@cashfreepayments/cashfree-sdk").default;
+const axios = require('axios');
 const crypto = require('crypto');
 const Order = require('../models/Order');
 const User = require('../models/User');
 require("dotenv").config();
 
-// Initialize Cashfree
+// Cashfree API configuration
+const CASHFREE_API_URL = process.env.NODE_ENV === 'production'
+    ? 'https://api.cashfree.com/pg'
+    : 'https://sandbox.cashfree.com/pg';
+
+const CASHFREE_API_VERSION = '2023-08-01';
+
+// Get Cashfree headers
+const getCashfreeHeaders = () => {
+    return {
+        'Content-Type': 'application/json',
+        'x-api-version': CASHFREE_API_VERSION,
+        'x-client-id': process.env.CASHFREE_APP_ID,
+        'x-client-secret': process.env.CASHFREE_SECRET_KEY
+    };
+};
+
+// Initialize Cashfree (validation)
 const initializeCashfree = () => {
     const clientId = process.env.CASHFREE_APP_ID;
-    const clientSecret = process.env.CASHFREE_SECRET_ID;
+    const clientSecret = process.env.CASHFREE_SECRET_KEY;
 
     console.log('🔧 Initializing Cashfree with credentials:', {
         clientId: clientId ? `${clientId.substring(0, 10)}...` : 'MISSING',
         clientSecret: clientSecret ? 'EXISTS' : 'MISSING',
-        environment: process.env.NODE_ENV
+        environment: process.env.NODE_ENV || 'development',
+        apiUrl: CASHFREE_API_URL
     });
 
     if (!clientId || !clientSecret) {
         throw new Error("Cashfree credentials not found in environment variables");
     }
 
-    // Configure Cashfree instance
-    Cashfree.XClientId = clientId;
-    Cashfree.XClientSecret = clientSecret;
-    Cashfree.XEnvironment = process.env.NODE_ENV === 'production' ? 'PRODUCTION' : 'SANDBOX';
-
-    console.log('✅ Cashfree initialized successfully');
-    return Cashfree;
+    console.log('✅ Cashfree configured successfully');
 };
 
 // Generate unique Cashfree OrderId
 const generateOrderId = () => {
     const timestamp = Date.now().toString();
     const randomBytes = crypto.randomBytes(4).toString("hex");
-    const orderId = `CF${timestamp}${randomBytes}`.substring(0, 20); // Cashfree max 50 chars
+    const orderId = `CF${timestamp}${randomBytes}`.substring(0, 20);
     console.log('🆔 Generated Order ID:', orderId);
     return orderId;
 };
@@ -40,19 +52,17 @@ const generateOrderId = () => {
 // @desc    Initiate Payment
 // @route   Used internally by placeOrder
 // @access  Private
-
 const initiatePayment = async (orderId, amount, userId, customerPhone) => {
   try {
     console.log("💳 Initiating payment...");
+    console.log("📋 Payment params:", { orderId, amount, userId, customerPhone });
 
-    const cf = Cashfree({
-      env: "sandbox",
-      appId: process.env.CASHFREE_APP_ID,
-      secretKey: process.env.CASHFREE_SECRET_KEY,
-    });
+    // Validate Cashfree config
+    initializeCashfree();
 
-    const cfOrderId = `CF${Date.now()}`;
+    const cfOrderId = generateOrderId();
 
+    // Create order request payload
     const payload = {
       order_id: cfOrderId,
       order_amount: amount,
@@ -62,26 +72,41 @@ const initiatePayment = async (orderId, amount, userId, customerPhone) => {
         customer_phone: customerPhone || "9999999999",
       },
       order_meta: {
-        return_url: `http://localhost:5173/order/success?order_id=${orderId}`,
+        return_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/order/success?order_id=${orderId}`,
       }
     };
 
-    console.log("📤 Sending order request:", payload);
+    console.log("📤 Sending order request to Cashfree:", payload);
 
-    const response = await cf.pg.orders.create(payload);
+    // Make API call to Cashfree
+    const response = await axios.post(
+      `${CASHFREE_API_URL}/orders`,
+      payload,
+      { headers: getCashfreeHeaders() }
+    );
 
-    console.log("✅ Cashfree Order Response:", response);
+    console.log("✅ Cashfree Order Response:", response.data);
+
+    // Update the order with cfOrderId
+    await Order.findByIdAndUpdate(orderId, { 
+      cfOrderId: cfOrderId 
+    });
 
     return {
       success: true,
       cfOrderId,
       paymentSessionId: response.data.payment_session_id,
-      response
+      response: response.data
     };
 
   } catch (error) {
-    console.error("❌ Cashfree Payment Error:", error);
-    return { success: false, message: error.message };
+    console.error("❌ Cashfree Payment Error:", error.message);
+    console.error("Error details:", error.response?.data || error.message);
+    return { 
+      success: false, 
+      message: error.message,
+      details: error.response?.data 
+    };
   }
 };
 
@@ -102,15 +127,20 @@ const verifyPayment = async (req, res) => {
             });
         }
 
-        const cashfree = initializeCashfree();
+        // Validate Cashfree
+        initializeCashfree();
 
         // Fetch payment details from Cashfree
         console.log('📡 Fetching payment status from Cashfree...');
-        const response = await Cashfree.PGOrderFetchPayments("2023-08-01", orderId);
+        
+        const response = await axios.get(
+            `${CASHFREE_API_URL}/orders/${orderId}/payments`,
+            { headers: getCashfreeHeaders() }
+        );
 
         console.log('📥 Cashfree payment response:', JSON.stringify(response.data, null, 2));
 
-        const paymentData = response.data?.[0];
+        const paymentData = response.data?.[0]; // Get first payment
         const paymentStatus = paymentData?.payment_status;
 
         console.log('💰 Payment Status:', paymentStatus);
@@ -153,9 +183,7 @@ const verifyPayment = async (req, res) => {
 
             if (user) {
                 console.log('📧 User found:', user.email);
-                
                 // TODO: Send confirmation email
-                // await sendOrderConfirmationEmail(...);
                 console.log('📨 Email notification would be sent here');
             }
 

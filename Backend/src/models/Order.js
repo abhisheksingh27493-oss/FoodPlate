@@ -1,70 +1,68 @@
 const mongoose = require('mongoose');
 
-const orderSchema = new mongoose.Schema(
-  {
-    user: {
+const orderSchema = new mongoose.Schema({
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  items: [{
+    food: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
+      ref: 'Food',
+      required: true
     },
-    items: [
-      {
-        food: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: 'Food',
-          required: true,
-        },
-        quantity: {
-          type: Number,
-          required: true,
-          min: 1,
-        },
-        price: {
-          type: Number,
-          required: true,
-        },
-      },
-    ],
-    totalAmount: {
+    name: String,
+    quantity: {
       type: Number,
       required: true,
+      min: 1
     },
+    price: {
+      type: Number,
+      required: true
+    },
+    subtotal: Number
+  }],
+  totalAmount: {
+    type: Number,
+    required: true
+  },
+  status: {
+    type: String,
+    enum: ['Pending', 'Processing', 'Preparing', 'Out for Delivery', 'Delivered', 'Cancelled'],
+    default: 'Pending'
+  },
+  orderType: {
+    type: String,
+    enum: ['Delivery', 'Pickup', 'Dine-in'],
+    default: 'Delivery'
+  },
+  shippingAddress: {
+    street: String,
+    city: String,
+    state: String,
+    postalCode: String,
+    country: String
+  },
+  // Cashfree Order ID
+  cfOrderId: {
+    type: String,
+    index: true,
+    sparse: true
+  },
+  paymentResult: {
+    id: String,
     status: {
       type: String,
-      enum: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'],
-      default: 'Pending',
+      enum: ['Pending', 'Paid', 'Failed'],
+      default: 'Pending'
     },
-    orderType: {
-      type: String,
-      enum: ['Delivery', 'Dine-in'],
-      default: 'Delivery',
-    },
-    shippingAddress: {
-      street: String,
-      city: String,
-      state: String,
-      zipCode: String,
-      country: String,
-    },
-    cfOrderId: {
-      type: String,
-      sparse: true, // Cashfree Order ID
-    },
-    paymentResult: {
-      id: String,
-      status: String,
-      update_time: String,
-      transaction_id: String,
-      email_address: String,
-    },
-  },
-  {
-    timestamps: true,
+    update_time: String,
+    transaction_id: String
   }
-);
-
-// Index for faster lookups
-orderSchema.index({ cfOrderId: 1 });
-orderSchema.index({ user: 1, createdAt: -1 });
+}, {
+  timestamps: true
+});
 
 module.exports = mongoose.model('Order', orderSchema);

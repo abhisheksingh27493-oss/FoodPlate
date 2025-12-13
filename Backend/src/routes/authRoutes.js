@@ -24,11 +24,6 @@ router.post('/register', validateRegister, handleValidationErrors, register);
 router.post('/login', validateLogin, handleValidationErrors, login);
 router.get('/me', protect, getMe);
 
-// Admin routes
-router.get('/:id', protect, authorize('admin'), getUser);
-router.put('/role/:id', protect, authorize('admin'), updateRole);
-router.delete('/:id', protect, authorize('admin'), deleteUser);
-
 // Google OAuth routes
 router.get(
   '/google',
@@ -40,6 +35,11 @@ router.get(
   passport.authenticate('google', { failureRedirect: '/login' }),
   googleCallback
 );
+
+// Admin routes
+router.get('/:id', protect, authorize('admin'), getUser);
+router.put('/role/:id', protect, authorize('admin'), updateRole);
+router.delete('/:id', protect, authorize('admin'), deleteUser);
 
 module.exports = router;
 
